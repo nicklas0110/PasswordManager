@@ -15,7 +15,7 @@ namespace PasswordManager
 
         static void Main(string[] args)
         {
-            string saltPath = "salt.dat";
+            string saltPath = "salt.dat"; // Path to the salt file
             AuthenticationService authService = new AuthenticationService();
             EncryptionService encryptionService = new EncryptionService();
             byte[] key = null;
@@ -59,7 +59,8 @@ namespace PasswordManager
             while (!exit)
             {
                 // Display options to the user
-                Console.WriteLine("Choose an option: [1] Add Entry, [2] Read Entries, [3] Delete All Entries, [4] Log Out");
+                Console.WriteLine("");
+                Console.WriteLine("Choose an option: [1] Add Entry, [2] Read Entries, [3] Delete All Entries, [4] Generate Password, [5] Log Out");
                 string option = Console.ReadLine();
 
                 switch (option)
@@ -74,6 +75,11 @@ namespace PasswordManager
                         DeleteAllEntries();
                         break;
                     case "4":
+                        // Generate a password and print it to the user
+                        string generatedPassword = GeneratePassword();
+                        Console.WriteLine($"Generated Password: {generatedPassword}");
+                        break;
+                    case "5":
                         exit = true;
                         Console.WriteLine("Logging out...");
                         authenticated = false;
@@ -85,6 +91,7 @@ namespace PasswordManager
             }
         }
 
+        // Create a new user and store it in the database
         private static bool CreateNewUser()
         {
             using (var context = new PasswordDbContext())
@@ -117,6 +124,7 @@ namespace PasswordManager
             }
         }
 
+        // Log in the user if the credentials are correct
         private static bool LogIn()
         {
             using (var context = new PasswordDbContext())
@@ -148,6 +156,7 @@ namespace PasswordManager
             }
         }
 
+        // Modify AddEntry to allow password generation or manual entry
         private static void AddEntry(byte[] key, EncryptionService encryptionService)
         {
             using (var context = new PasswordDbContext())
@@ -156,15 +165,32 @@ namespace PasswordManager
                 string serviceName = Console.ReadLine();
                 Console.WriteLine("Enter the username or email:");
                 string username = Console.ReadLine();
-                Console.WriteLine("Enter the password:");
-                string password = Console.ReadLine();
+
+                // Ask the user if they want to generate a password or enter one manually
+                Console.WriteLine("Would you like to [1] Generate a password or [2] Enter your own?");
+                string passwordChoice = Console.ReadLine();
+
+                string password;
+                if (passwordChoice == "1")
+                {
+                    // Generate a password and display it
+                    password = GeneratePassword();
+                    Console.WriteLine($"Generated Password: {password}");
+                }
+                else
+                {
+                    // Manually enter the password
+                    Console.WriteLine("Enter the password:");
+                    password = Console.ReadLine();
+                }
 
                 // Generate a new IV for encryption
                 byte[] iv = encryptionService.GenerateInitializationVector();
-                Console.WriteLine($"Generated IV (Encryption): {Convert.ToBase64String(iv)}"); // Debug output
+                //Console.WriteLine($"Generated IV (Encryption): {Convert.ToBase64String(iv)}"); // Debug output
 
                 byte[] encryptedPassword = encryptionService.Encrypt(password, key, iv);
 
+                // Create a new PasswordEntry and save it to the database
                 PasswordEntry newEntry = new PasswordEntry
                 {
                     ServiceName = serviceName,
@@ -180,6 +206,7 @@ namespace PasswordManager
             }
         }
 
+        // Read and decrypt stored password entries for the current user
         private static void ReadEntries(byte[] key, EncryptionService encryptionService)
         {
             using (var context = new PasswordDbContext())
@@ -196,7 +223,6 @@ namespace PasswordManager
                     {
                         // Retrieve the stored IV for decryption
                         byte[] entryIv = Convert.FromBase64String(entry.IV);
-                        //Console.WriteLine($"Retrieved IV (Decryption): {Convert.ToBase64String(entryIv)}"); // Debug output
 
                         try
                         {
@@ -212,6 +238,7 @@ namespace PasswordManager
             }
         }
 
+        // Delete all entries for the current user
         private static void DeleteAllEntries()
         {
             using (var context = new PasswordDbContext())
@@ -230,6 +257,27 @@ namespace PasswordManager
             }
         }
 
+        // Generate a password with both lowercase and uppercase letters, symbols and digits
+        private static string GeneratePassword()
+        {
+            const string chars =
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*+;:,.<>?";
+            Random random = new Random();
+            StringBuilder result = new StringBuilder();
+
+            // Generate 4 groups of 5 characters separated by dashes
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 5; j++)
+                {
+                    result.Append(chars[random.Next(chars.Length)]);
+                }
+                if (i < 3) result.Append('-'); // Add dashes between groups
+            }
+
+            return result.ToString();
+        }
+
         // Hash a password using SHA-256
         private static string HashPassword(string password)
         {
@@ -245,17 +293,6 @@ namespace PasswordManager
         {
             string hashedPassword = HashPassword(password);
             return hashedPassword == storedHash;
-        }
-
-        // Generate a salt for key derivation
-        private static byte[] GenerateSalt()
-        {
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                byte[] salt = new byte[16];
-                rng.GetBytes(salt);
-                return salt;
-            }
         }
     }
 }
