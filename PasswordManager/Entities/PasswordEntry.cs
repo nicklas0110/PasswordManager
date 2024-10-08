@@ -7,5 +7,8 @@ namespace PasswordManager.Entities
         public string Username { get; set; }
         public string EncryptedPassword { get; set; }
         public string IV { get; set; }
+
+        public int UserId { get; set; } // Foreign key to User table
+        public User User { get; set; }  // Navigation property
     }
 }
