@@ -14,7 +14,7 @@ This project is a console-based secure password manager implemented in C#. It al
 
 3. **Password Management**:
    - Users can add new entries, read existing entries, and delete all entries.
-   - Supports password generation in the format: `VVz7Q-W1iwO-6q6&O-,*5$A`, with lowercase and uppercase letters, symbols and digits.
+   - Supports password generation in the format: `VVz7Q-W1iwO-6q6&O-,*5$A`, with lowercase and uppercase letters, symbols, and digits.
 
 4. **Security**:
    - Passwords are encrypted using AES-256.
@@ -59,22 +59,48 @@ This project is a console-based secure password manager implemented in C#. It al
 8. **Reading and Deleting Entries**:
    - Read stored entries for the logged-in user or delete all entries.
 
+## Screenshots
+Below are some screenshots showcasing the functionality of the application:
+
+1. **Main Menu / Logging in**:
+   ![Main Menu](screenshots/login.png)
+
+2. **Password Management**:
+   ![Password Management](screenshots/read.png)
+
+3. **Adding Password That Is Generated Example**:
+   ![Generated Password](screenshots/create.png)
+
 ## Security Model
-1. **Encryption**:
-   - Passwords are encrypted using AES-256 before being stored in the database.
-   - An Initialization Vector (IV) is generated for each password to ensure unique encryption, even for identical passwords.
+### Encryption
+- **AES-256 Encryption**: All passwords are encrypted using AES-256 before being stored in the database.
+- **Unique Initialization Vectors**: An IV is generated for each password entry, ensuring that identical passwords have unique encrypted representations.
 
-2. **Key Management**:
-   - A master password is used to derive the encryption key using a Key Derivation Function (KDF).
-   - The master password is never stored directly in the database—only its hashed value using SHA-256.
+### Key Management
+- **Master Password**: The master password is hashed using SHA-256 and is never stored directly in the database.
+- **Key Derivation**: The master password is used to derive the encryption key for AES-256 using a Key Derivation Function (KDF).
 
-3. **Database**:
-   - The database (`passwords.db`) is stored locally in the project directory.
-   - The database is structured with two main tables:
-     - **Users**: Stores username and hashed master password.
-     - **PasswordEntries**: Stores service name, username, encrypted password, IV, and user association.
+### Database Security
+- The database (`passwords.db`) is stored locally in the project directory and contains two main tables:
+  - **Users**: Stores usernames and hashed master passwords.
+  - **PasswordEntries**: Stores service names, usernames, encrypted passwords, IVs, and user associations.
 
-## Security Considerations
-- The application should be run in a secure environment where unauthorized users do not have access to the `passwords.db` file or the `salt.dat` file.
-- The master password should be chosen to be strong enough to resist brute-force attacks.
-- Backup the database regularly and keep it in a secure location.
+## Security Discussion
+### What Does it Protect Against?
+The primary goal of the application is to protect stored passwords against unauthorized access. This includes:
+- **Local Attacks**: Unauthorized users trying to access the stored passwords without knowing the master password.
+- **Data Theft**: Even if the `passwords.db` file is stolen, passwords remain secure because they are encrypted.
+
+### Threat Actors
+- **Casual Intruders**: Individuals who gain access to the computer but lack advanced skills.
+- **Advanced Attackers**: Skilled attackers who may have access to the database file and attempt to brute-force master passwords.
+
+### Pitfalls and Limitations
+- **Local Security**: The application does not protect against keyloggers or malware that can capture keystrokes.
+- **Database Security**: If an attacker gains access to the `passwords.db` file and the `salt.dat` file, they may attempt to brute-force the master password.
+- **No Multi-Factor Authentication**: The application relies solely on the master password for authentication.
+
+### Future Improvements
+- Implement multi-factor authentication for added security.
+- Provide a secure backup and restore functionality for encrypted entries.
+- Consider adding support for external hardware security keys (e.g., YubiKey).
