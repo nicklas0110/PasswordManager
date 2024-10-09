@@ -50,9 +50,18 @@ namespace PasswordManager
                 }
             }
 
-            // Read salt and derive key for encryption
+            // Check if the salt file exists. If not, create a new salt.
+            if (!File.Exists(saltPath))
+            {
+                byte[] newSalt = GenerateSalt(); // Generate a new salt
+                File.WriteAllBytes(saltPath, newSalt); // Save the salt to the file
+                Console.WriteLine("Generated new salt and saved to file.");
+            }
+
+// Read salt and derive key for encryption
             byte[] salt = File.ReadAllBytes(saltPath);
             key = authService.DeriveKey(currentUser.MasterPasswordHash, salt);
+
 
             // Main loop for password management
             bool exit = false;
@@ -294,5 +303,18 @@ namespace PasswordManager
             string hashedPassword = HashPassword(password);
             return hashedPassword == storedHash;
         }
+        
+        // Generate a random salt for key derivation
+        private static byte[] GenerateSalt()
+        {
+            using (var rng = new RNGCryptoServiceProvider())
+            {
+                byte[] salt = new byte[16]; // 16 bytes = 128 bits
+                rng.GetBytes(salt); // Fill the array with random bytes
+                return salt;
+            }
+        }
+
+        
     }
 }
