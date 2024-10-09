@@ -86,6 +86,12 @@ Below are some screenshots showcasing the functionality of the application:
   - **PasswordEntries**: Stores service names, usernames, encrypted passwords, IVs, and user associations.
 
 ## Security Discussion
+
+### Cryptographic Decisions and Justifications
+- **AES-256 Encryption**: AES-256 was chosen because it is a well-established, widely trusted standard for encryption. It provides a strong security level and is resistant to all known practical attacks. It is the standard choice for symmetric key encryption in both academic and commercial settings.
+- **SHA-256 for Hashing**: SHA-256 is used for hashing the master passwords due to its resistance to collision and pre-image attacks. This ensures that even if two users have the same password, their stored hashes will not reveal this information. SHA-256’s one-way nature makes it computationally infeasible to derive the original password from its hash.
+- **Key Derivation Function (KDF)**: A KDF is used to derive the encryption key from the master password. This ensures that even if the password is compromised, the encryption key remains unique and securely derived. This protects against brute-force and rainbow table attacks.
+
 ### What Does it Protect Against?
 The primary goal of the application is to protect stored passwords against unauthorized access. This includes:
 - **Local Attacks**: Unauthorized users trying to access the stored passwords without knowing the master password.
