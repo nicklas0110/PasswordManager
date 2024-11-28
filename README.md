@@ -4,7 +4,7 @@
 This project is a console-based secure password manager implemented in C#. It allows users to securely store and retrieve credentials for various services. Each user has a unique master password for authentication and can add, read, and delete password entries.
 
 ## Features
-1. **User Management**: 
+1. **User Management**:
    - Create new users with a master password.
    - Authenticate users with the stored master password.
 
@@ -18,7 +18,7 @@ This project is a console-based secure password manager implemented in C#. It al
 
 4. **Security**:
    - Passwords are encrypted using AES-256.
-   - Master passwords are hashed using SHA-256 before storing in the database.
+   - Master passwords are hashed using Argon2id before storing in the database.
    - Initialization vectors (IVs) are generated for each encrypted entry to ensure secure encryption.
 
 ## Setup Instructions
@@ -76,21 +76,28 @@ Below are some screenshots showcasing the functionality of the application:
 - **AES-256 Encryption**: All passwords are encrypted using AES-256 before being stored in the database.
 - **Unique Initialization Vectors**: An IV is generated for each password entry, ensuring that identical passwords have unique encrypted representations.
 
+### Password Hashing
+- **Argon2id**:
+   - Argon2id is used for hashing the master password. This algorithm is specifically designed for password hashing and provides resistance against GPU-based brute-force attacks.
+   - Argon2id incorporates salts to ensure that even if two users have the same password, their hashes will differ.
+   - High memory usage, multiple iterations, and parallelism make Argon2id resistant to brute-force attacks.
+
 ### Key Management
-- **Master Password**: The master password is hashed using SHA-256 and is never stored directly in the database.
-- **Key Derivation**: The master password is used to derive the encryption key for AES-256 using a Key Derivation Function (KDF).
+- **Master Password**: The master password is hashed using Argon2id and is never stored directly in the database.
+- **Key Derivation**: The encryption key for AES-256 is derived directly from the master password and a unique salt using PBKDF2 with 100,000 iterations.
 
 ### Database Security
 - The database (`passwords.db`) is stored locally in the project directory and contains two main tables:
-  - **Users**: Stores usernames and hashed master passwords.
-  - **PasswordEntries**: Stores service names, usernames, encrypted passwords, IVs, and user associations.
+   - **Users**: Stores usernames and hashed master passwords.
+   - **PasswordEntries**: Stores service names, usernames, encrypted passwords, IVs, and user associations.
 
 ## Security Discussion
 
 ### Cryptographic Decisions and Justifications
-- **AES-256 Encryption**: AES-256 was chosen because it is a well-established, widely trusted standard for encryption. It provides a strong security level and is resistant to all known practical attacks. It is the standard choice for symmetric key encryption in both academic and commercial settings.
-- **SHA-256 for Hashing**: SHA-256 is used for hashing the master passwords due to its resistance to collision and pre-image attacks. This ensures that even if two users have the same password, their stored hashes will not reveal this information. SHA-256’s one-way nature makes it computationally infeasible to derive the original password from its hash.
-- **Key Derivation Function (KDF)**: A KDF is used to derive the encryption key from the master password. This ensures that even if the password is compromised, the encryption key remains unique and securely derived. This protects against brute-force and rainbow table attacks.
+- **AES-256 Encryption**: AES-256 provides strong security and is widely trusted in both academic and commercial settings.
+- **Argon2id for Hashing**:
+   - Argon2id was chosen for its resistance to brute-force and GPU-based attacks. It uses salts, memory-hard functions, and multiple iterations to ensure secure password storage.
+- **PBKDF2 for Key Derivation**: The encryption key is derived using PBKDF2 with a high iteration count (100,000), ensuring that even if the salt is exposed, the key derivation process remains computationally expensive for attackers.
 
 ### What Does it Protect Against?
 The primary goal of the application is to protect stored passwords against unauthorized access. This includes:
