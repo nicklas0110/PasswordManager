@@ -28,6 +28,7 @@ namespace PasswordManager
 
             // Main login or registration flow
             bool authenticated = false;
+            string masterPassword = null;
             while (!authenticated)
             {
                 Console.WriteLine("Choose an option: [1] Log In, [2] Create New User, [3] Exit");
@@ -36,10 +37,11 @@ namespace PasswordManager
                 switch (choice)
                 {
                     case "1":
-                        authenticated = LogIn();
+                        authenticated = LogIn(out masterPassword);
                         break;
                     case "2":
-                        authenticated = CreateNewUser();
+                        masterPassword = CreateNewUser();
+                        authenticated = masterPassword != null; // Ensure successful creation
                         break;
                     case "3":
                         Console.WriteLine("Exiting program. Goodbye!");
@@ -50,9 +52,17 @@ namespace PasswordManager
                 }
             }
 
-            // Read salt and derive key for encryption
+            // Check if the salt file exists. If not, create a new salt.
+            // Derive encryption key after login or user creation
+            if (!File.Exists(saltPath))
+            {
+                byte[] newSalt = GenerateSalt();
+                File.WriteAllBytes(saltPath, newSalt);
+                Console.WriteLine("Generated new salt and saved to file.");
+            }
+
             byte[] salt = File.ReadAllBytes(saltPath);
-            key = authService.DeriveKey(currentUser.MasterPasswordHash, salt);
+            key = DeriveEncryptionKey(masterPassword, salt);
 
             // Main loop for password management
             bool exit = false;
@@ -90,9 +100,8 @@ namespace PasswordManager
                 }
             }
         }
-
         // Create a new user and store it in the database
-        private static bool CreateNewUser()
+        private static string CreateNewUser()
         {
             using (var context = new PasswordDbContext())
             {
@@ -102,37 +111,37 @@ namespace PasswordManager
                 if (context.Users.Any(u => u.Username == username))
                 {
                     Console.WriteLine("Username already exists. Please choose a different one.");
-                    return false;
+                    return null;
                 }
 
                 Console.WriteLine("Enter a master password:");
                 string masterPassword = Console.ReadLine();
 
                 // Hash the master password and create a new user
-                string hashedMasterPassword = HashPassword(masterPassword);
+                string hashedMasterPassword = new AuthenticationService().HashPassword(masterPassword);
                 currentUser = new User
                 {
                     Username = username,
                     MasterPasswordHash = hashedMasterPassword
                 };
-
+                
                 // Store the user in the database
                 context.Users.Add(currentUser);
                 context.SaveChanges();
                 Console.WriteLine("User created successfully.");
-                return true;
+                return masterPassword; // Return the master password
             }
         }
 
         // Log in the user if the credentials are correct
-        private static bool LogIn()
+        private static bool LogIn(out string masterPassword)
         {
             using (var context = new PasswordDbContext())
             {
                 Console.WriteLine("Enter your username:");
                 string username = Console.ReadLine();
                 Console.WriteLine("Enter your master password:");
-                string masterPassword = Console.ReadLine();
+                masterPassword = Console.ReadLine();
 
                 // Retrieve the user from the database
                 currentUser = context.Users.SingleOrDefault(u => u.Username == username);
@@ -143,7 +152,7 @@ namespace PasswordManager
                 }
 
                 // Verify the entered password
-                if (VerifyPassword(masterPassword, currentUser.MasterPasswordHash))
+                if (new AuthenticationService().VerifyPassword(masterPassword, currentUser.MasterPasswordHash))
                 {
                     Console.WriteLine("Login successful.");
                     return true;
@@ -155,7 +164,7 @@ namespace PasswordManager
                 }
             }
         }
-
+        
         // Modify AddEntry to allow password generation or manual entry
         private static void AddEntry(byte[] key, EncryptionService encryptionService)
         {
@@ -183,11 +192,9 @@ namespace PasswordManager
                     Console.WriteLine("Enter the password:");
                     password = Console.ReadLine();
                 }
-
+                
                 // Generate a new IV for encryption
                 byte[] iv = encryptionService.GenerateInitializationVector();
-                //Console.WriteLine($"Generated IV (Encryption): {Convert.ToBase64String(iv)}"); // Debug output
-
                 byte[] encryptedPassword = encryptionService.Encrypt(password, key, iv);
 
                 // Create a new PasswordEntry and save it to the database
@@ -201,7 +208,7 @@ namespace PasswordManager
                 };
 
                 context.PasswordEntries.Add(newEntry);
-                context.SaveChanges(); // Save changes to the database
+                context.SaveChanges();
                 Console.WriteLine("Password entry added successfully.");
             }
         }
@@ -211,7 +218,8 @@ namespace PasswordManager
         {
             using (var context = new PasswordDbContext())
             {
-                var entries = context.PasswordEntries.Where(e => e.UserId == currentUser.Id).ToList(); // Filter entries by current user
+                // Filter entries by current user
+                var entries = context.PasswordEntries.Where(e => e.UserId == currentUser.Id).ToList();
                 if (entries.Count == 0)
                 {
                     Console.WriteLine("No entries found.");
@@ -260,8 +268,7 @@ namespace PasswordManager
         // Generate a password with both lowercase and uppercase letters, symbols and digits
         private static string GeneratePassword()
         {
-            const string chars =
-                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*+;:,.<>?";
+            const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*+;:,.<>?";
             Random random = new Random();
             StringBuilder result = new StringBuilder();
 
@@ -278,21 +285,22 @@ namespace PasswordManager
             return result.ToString();
         }
 
-        // Hash a password using SHA-256
-        private static string HashPassword(string password)
+        private static byte[] GenerateSalt()
         {
-            using (SHA256 sha256 = SHA256.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
-                byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(hashedBytes);
+                byte[] salt = new byte[16];
+                rng.GetBytes(salt);
+                return salt;
             }
         }
 
-        // Verify a password against a stored hash
-        private static bool VerifyPassword(string password, string storedHash)
+        private static byte[] DeriveEncryptionKey(string masterPassword, byte[] salt)
         {
-            string hashedPassword = HashPassword(password);
-            return hashedPassword == storedHash;
+            using (var pbkdf2 = new Rfc2898DeriveBytes(masterPassword, salt, 100_000))
+            {
+                return pbkdf2.GetBytes(32);
+            }
         }
     }
 }
